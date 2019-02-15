@@ -640,7 +640,10 @@ class InstagramScraper(object):
         if self.latest is False or os.path.isfile(dst + '/' + item['urls'][0].split('/')[-1]) is False:
             for item in tqdm.tqdm([item], desc='Searching {0} for profile pic'.format(username), unit=" images",
                                   ncols=0, disable=self.quiet):
-                future = executor.submit(self.worker_wrapper, self.download, item, dst)
+                # print("")
+                # print("item: ", item)
+                # print("dst:  ", dst)
+                future = executor.submit(self.worker_wrapper, self.download, item, dst, 'avatar')
                 future_to_item[future] = item
 
     def get_stories(self, dst, executor, future_to_item, user, username):
@@ -685,6 +688,7 @@ class InstagramScraper(object):
                         item['username']=username
                         future = executor.submit(self.worker_wrapper, self.download, item, dst)
                         future_to_item[future] = item
+                        iter = iter+1
                 else:
                     # For when filter is on but media doesnt contain tags
                     pass
@@ -692,8 +696,9 @@ class InstagramScraper(object):
             else:
                 if self.has_selected_media_types(item) and self.is_new_media(item):
                     item['username']=username
-                    future = executor.submit(self.worker_wrapper, self.download, item, dst)
+                    future = executor.submit(self.worker_wrapper, self.download, item, dst, 'latest_image')
                     future_to_item[future] = item
+                    iter = iter+1
 
             if self.include_location:
                 item['username']=username
@@ -707,7 +712,11 @@ class InstagramScraper(object):
                 item['username']=username
                 self.posts.append(item)
 
-            iter = iter + 1
+            # iter = iter + 1
+            # disabled above line bevause this would let non-used media count towards the maximum
+            # for example: if only getting images, if the first 3 posts are videos these are skipped,
+            # but they do count for the max, meaning that if post 4 is an image, but maximum was set to 3,
+            # the image will not be downloaded
             if self.maximum != 0 and iter >= self.maximum:
                 break
 
@@ -850,12 +859,14 @@ class InstagramScraper(object):
         item['urls'] = urls
         return item
 
-    def download(self, item, save_dir='./'):
+    def download(self, item, save_dir='./', save_filename=None):
         """Downloads the media file."""
         for full_url, base_name in self.templatefilename(item):
             url = full_url.split('?')[0] #try the static url first, stripping parameters
-
-            file_path = os.path.join(save_dir, base_name)
+            if not save_filename:
+                file_path = os.path.join(save_dir, base_name)
+            else:
+                file_path = os.path.join(save_dir, "{}.{}".format(save_filename, base_name.split('.')[-1]))
 
             if not os.path.exists(os.path.dirname(file_path)):
                 self.make_dir(os.path.dirname(file_path))
@@ -891,7 +902,7 @@ class InstagramScraper(object):
                                         try:
                                             match = re.match(r'bytes (?P<first>\d+)-(?P<last>\d+)/(?P<size>\d+)', response.headers['Content-Range'])
                                             range_file_position = int(match.group('first'))
-                                            if range_file_position != downloaded_before: 
+                                            if range_file_position != downloaded_before:
                                                 raise Exception()
                                             total_length = int(match.group('size'))
                                             media_file.truncate(total_length)
@@ -1040,7 +1051,7 @@ class InstagramScraper(object):
         """Saves the data to a json file."""
         if not os.path.exists(os.path.dirname(dst)):
             os.makedirs(os.path.dirname(dst))
-            
+
         if data:
             with open(dst, 'wb') as f:
                 json.dump(data, codecs.getwriter('utf-8')(f), indent=4, sort_keys=True, ensure_ascii=False)
