@@ -859,14 +859,14 @@ class InstagramScraper(object):
         item['urls'] = urls
         return item
 
-    def download(self, item, save_dir='./'): #, save_filename=None):
+    def download(self, item, save_dir='./', save_filename=None):
         """Downloads the media file."""
         for full_url, base_name in self.templatefilename(item):
             url = full_url.split('?')[0] #try the static url first, stripping parameters
-            #if not save_filename:
-            file_path = os.path.join(save_dir, base_name)
-            #else:
-            #    file_path = os.path.join(save_dir, "{}.{}".format(save_filename, base_name.split('.')[-1]))
+            if not save_filename:
+                file_path = os.path.join(save_dir, base_name)
+            else:
+               file_path = os.path.join(save_dir, "{}.{}".format(save_filename, base_name.split('.')[-1]))
 
             if not os.path.exists(os.path.dirname(file_path)):
                 self.make_dir(os.path.dirname(file_path))
