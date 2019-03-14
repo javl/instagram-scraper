@@ -221,12 +221,18 @@ class InstagramScraper(object):
         login = self.session.post(LOGIN_URL, data=login_data, allow_redirects=True)
         self.session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
         self.cookies = login.cookies
-        login_text = json.loads(login.text)
+
+        try:
+            login_text = json.loads(login.text)
+        except Exception as e:
+            print("exception on reading login JSON")
+            return False
 
         if login_text.get('authenticated') and login.status_code == 200:
             self.logged_in = True
             self.session.headers = {'user-agent': CHROME_WIN_UA}
             self.rhx_gis = self.get_shared_data()['rhx_gis']
+            return True
         else:
             self.logger.error('Login failed for ' + self.login_user)
 
@@ -242,6 +248,9 @@ class InstagramScraper(object):
                     self.logger.debug('Session error %(count)s: "%(error)s"' % locals())
             else:
                 self.logger.error(json.dumps(login_text))
+
+            return False
+
 
     def login_challenge(self, checkpoint_url):
         self.session.headers.update({'Referer': BASE_URL})
@@ -1235,7 +1244,16 @@ def main():
 
     scraper = InstagramScraper(**vars(args))
 
-    scraper.login()
+    retries = 3
+
+    while retries > 0:
+        if scraper.login():
+            break
+        elif retries > 0:
+            retries -= 1
+            print("error on login, retry {} more time(s)".format(retries))
+        else:
+            sys.exit("retried 3 times but didn't work...")
 
     if args.tag:
         scraper.scrape_hashtag()
