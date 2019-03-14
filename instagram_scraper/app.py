@@ -687,7 +687,7 @@ class InstagramScraper(object):
             media_exec = concurrent.futures.ThreadPoolExecutor(max_workers=5)
 
         iter = 0
-        for item in tqdm.tqdm(self.query_media_gen(user), desc='Searching {0} for posts'.format(username),
+        for item in tqdm.tqdm(self.query_media_gen(user), desc='Searching {0} for posts with types: {1}'.format(username, ','.join(self.media_types)),
                               unit=' media', disable=self.quiet):
             # -Filter command line
             if self.filter:
@@ -705,7 +705,12 @@ class InstagramScraper(object):
             else:
                 if self.has_selected_media_types(item) and self.is_new_media(item):
                     item['username']=username
-                    future = executor.submit(self.worker_wrapper, self.download, item, dst)  # , 'latest_image')
+
+                    save_filename = item['display_url'].split('?')[0]
+                    save_filename = save_filename.split('/')[-1]
+                    save_filename = save_filename.split('.')[0]
+
+                    future = executor.submit(self.worker_wrapper, self.download, item, dst, save_filename)  # , 'latest_image')
                     future_to_item[future] = item
                     iter = iter+1
 
@@ -871,6 +876,10 @@ class InstagramScraper(object):
     def download(self, item, save_dir='./', save_filename=None):
         """Downloads the media file."""
         for full_url, base_name in self.templatefilename(item):
+            if not base_name.endswith('.jpg'):
+                print('skip file: '+ base_name)
+                continue
+
             url = full_url.split('?')[0] #try the static url first, stripping parameters
             if not save_filename:
                 file_path = os.path.join(save_dir, base_name)
@@ -1246,14 +1255,14 @@ def main():
 
     retries = 3
 
-    while retries > 0:
-        if scraper.login():
-            break
-        elif retries > 0:
-            retries -= 1
-            print("error on login, retry {} more time(s)".format(retries))
-        else:
-            sys.exit("retried 3 times but didn't work...")
+    # while retries > 0:
+    #     if scraper.login():
+    #         break
+    #     elif retries > 0:
+    #         retries -= 1
+    #         print("error on login, retry {} more time(s)".format(retries))
+    #     else:
+    #         sys.exit("retried 3 times but didn't work...")
 
     if args.tag:
         scraper.scrape_hashtag()
